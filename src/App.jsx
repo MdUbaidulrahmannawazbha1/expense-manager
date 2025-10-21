@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlusCircle, Home, FileText, Users, Trash2, DollarSign, Bell } from 'lucide-react';
+import { PlusCircle, Home, FileText, Users, Trash2, DollarSign, Bell, X } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -18,6 +18,9 @@ function App() {
   const [splitType, setSplitType] = useState('equal');
   const [customAmounts, setCustomAmounts] = useState({});
   const [notes, setNotes] = useState('');
+  const [splitMode, setSplitMode] = useState('equal');
+  const [fixedPerson, setFixedPerson] = useState('');
+  const [fixedAmount, setFixedAmount] = useState('');
 
   const addPerson = () => {
     if (newPersonName.trim() && !people.includes(newPersonName.trim())) {
@@ -45,28 +48,48 @@ function App() {
     }
 
     let splitAmounts = {};
+    const totalAmount = parseFloat(amount);
 
-    if (splitType === 'equal') {
-      const perPersonAmount = parseFloat(amount) / splitWith.length;
+    if (splitMode === 'equal') {
+      const perPersonAmount = totalAmount / splitWith.length;
       splitWith.forEach(person => {
         splitAmounts[person] = perPersonAmount;
       });
-    } else {
+    } else if (splitMode === 'custom') {
       const totalCustom = splitWith.reduce((sum, person) => sum + (parseFloat(customAmounts[person]) || 0), 0);
-      if (Math.abs(totalCustom - parseFloat(amount)) > 0.01) {
+      if (Math.abs(totalCustom - totalAmount) > 0.01) {
         alert('Custom amounts must add up to the total amount');
         return;
       }
       splitAmounts = { ...customAmounts };
+    } else if (splitMode === 'fixed-plus-equal') {
+      if (!fixedPerson || !fixedAmount) {
+        alert('Please select a person and enter their fixed amount');
+        return;
+      }
+      const fixed = parseFloat(fixedAmount);
+      if (fixed >= totalAmount) {
+        alert('Fixed amount must be less than total amount');
+        return;
+      }
+      
+      const remaining = totalAmount - fixed;
+      const otherPeople = splitWith.filter(p => p !== fixedPerson);
+      const perPersonAmount = remaining / otherPeople.length;
+      
+      splitAmounts[fixedPerson] = fixed;
+      otherPeople.forEach(person => {
+        splitAmounts[person] = perPersonAmount;
+      });
     }
 
     const newExpense = {
       id: Date.now(),
       description,
-      amount: parseFloat(amount),
+      amount: totalAmount,
       splitWith: [...splitWith],
       splitAmounts,
-      splitType,
+      splitMode,
       date: new Date().toISOString(),
       category: selectedCategory,
       notes: notes.trim()
@@ -77,34 +100,40 @@ function App() {
     setDescription('');
     setAmount('');
     setSplitWith([]);
-    setSplitType('equal');
+    setSplitMode('equal');
     setCustomAmounts({});
     setSelectedCategory('Other');
     setNotes('');
+    setFixedPerson('');
+    setFixedAmount('');
     setCurrentPage('home');
   };
 
   const deleteExpense = (id) => {
-    setExpenses(expenses.filter(exp => exp.id !== id));
+    if (window.confirm('Delete entire expense log?')) {
+      setExpenses(expenses.filter(exp => exp.id !== id));
+    }
   };
 
-  const removePersonFromExpense = (expenseId, person) => {
-    setExpenses(expenses.map(exp => {
-      if (exp.id === expenseId) {
-        const newSplitWith = exp.splitWith.filter(p => p !== person);
-        const newSplitAmounts = { ...exp.splitAmounts };
-        delete newSplitAmounts[person];
-        
-        if (newSplitWith.length === 0) return null;
-        
-        return {
-          ...exp,
-          splitWith: newSplitWith,
-          splitAmounts: newSplitAmounts
-        };
-      }
-      return exp;
-    }).filter(exp => exp !== null));
+  const settlePersonFromExpense = (expenseId, person) => {
+    if (window.confirm(`Mark ${person} as settled for this expense?`)) {
+      setExpenses(expenses.map(exp => {
+        if (exp.id === expenseId) {
+          const newSplitWith = exp.splitWith.filter(p => p !== person);
+          const newSplitAmounts = { ...exp.splitAmounts };
+          delete newSplitAmounts[person];
+          
+          if (newSplitWith.length === 0) return null;
+          
+          return {
+            ...exp,
+            splitWith: newSplitWith,
+            splitAmounts: newSplitAmounts
+          };
+        }
+        return exp;
+      }).filter(exp => exp !== null));
+    }
   };
 
   const toggleSplitWith = (person) => {
@@ -113,6 +142,10 @@ function App() {
       const newCustomAmounts = { ...customAmounts };
       delete newCustomAmounts[person];
       setCustomAmounts(newCustomAmounts);
+      if (fixedPerson === person) {
+        setFixedPerson('');
+        setFixedAmount('');
+      }
     } else {
       setSplitWith([...splitWith, person]);
     }
@@ -120,7 +153,7 @@ function App() {
 
   const selectAllPeople = () => {
     setSplitWith([...people]);
-    if (splitType === 'custom' && amount) {
+    if (splitMode === 'custom' && amount) {
       const perPerson = parseFloat(amount) / people.length;
       const newCustomAmounts = {};
       people.forEach(person => {
@@ -133,6 +166,8 @@ function App() {
   const deselectAllPeople = () => {
     setSplitWith([]);
     setCustomAmounts({});
+    setFixedPerson('');
+    setFixedAmount('');
   };
 
   const updateCustomAmount = (person, value) => {
@@ -239,13 +274,25 @@ function App() {
     return settlements;
   };
 
-  const perPersonAmount = splitWith.length > 0 && amount && splitType === 'equal' 
+  const perPersonAmount = splitWith.length > 0 && amount && splitMode === 'equal' 
     ? (parseFloat(amount) / splitWith.length).toFixed(2) 
     : '0.00';
   
-  const totalAssigned = splitWith.length > 0 && splitType === 'custom'
+  const totalAssigned = splitWith.length > 0 && splitMode === 'custom'
     ? splitWith.reduce((sum, person) => sum + (parseFloat(customAmounts[person]) || 0), 0).toFixed(2)
     : '0.00';
+
+  const getRemainingAmount = () => {
+    if (splitMode === 'fixed-plus-equal' && fixedAmount && amount) {
+      const remaining = parseFloat(amount) - parseFloat(fixedAmount);
+      return remaining > 0 ? remaining.toFixed(2) : '0.00';
+    }
+    return '0.00';
+  };
+
+  const getOtherPeopleCount = () => {
+    return splitWith.filter(p => p !== fixedPerson).length;
+  };
 
   if (!setupComplete) {
     return (
@@ -394,7 +441,9 @@ function App() {
                         </div>
                         <div>
                           <span className="text-gray-600">Split Type:</span>
-                          <span className="ml-2 font-semibold capitalize">{expense.splitType}</span>
+                          <span className="ml-2 font-semibold capitalize">
+                            {expense.splitMode === 'fixed-plus-equal' ? 'Fixed + Equal' : expense.splitMode}
+                          </span>
                         </div>
                       </div>
                       
@@ -415,12 +464,12 @@ function App() {
                               </div>
                               <button
                                 type="button"
-                                onClick={() => removePersonFromExpense(expense.id, person)}
-                                className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1"
+                                onClick={() => settlePersonFromExpense(expense.id, person)}
+                                className="text-green-600 hover:text-green-800 text-xs flex items-center gap-1 bg-green-50 px-2 py-1 rounded"
                                 title="Mark as settled"
                               >
-                                <Trash2 className="w-4 h-4" />
-                                <span>Settled</span>
+                                <X className="w-4 h-4" />
+                                <span>Settle</span>
                               </button>
                             </div>
                           ))}
@@ -485,30 +534,81 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Split Type</label>
-                <div className="flex gap-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Split Mode</label>
+                <div className="space-y-2">
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
                       type="radio"
                       value="equal"
-                      checked={splitType === 'equal'}
-                      onChange={(e) => setSplitType(e.target.value)}
+                      checked={splitMode === 'equal'}
+                      onChange={(e) => setSplitMode(e.target.value)}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="text-gray-700">Equally</span>
+                    <span className="text-gray-700">Split Equally - Everyone pays the same</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="fixed-plus-equal"
+                      checked={splitMode === 'fixed-plus-equal'}
+                      onChange={(e) => setSplitMode(e.target.value)}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-gray-700">Fixed + Equal - One person pays fixed, others split remaining</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
                       type="radio"
                       value="custom"
-                      checked={splitType === 'custom'}
-                      onChange={(e) => setSplitType(e.target.value)}
+                      checked={splitMode === 'custom'}
+                      onChange={(e) => setSplitMode(e.target.value)}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="text-gray-700">Custom Amounts</span>
+                    <span className="text-gray-700">Custom Amounts - Enter specific amounts for each person</span>
                   </label>
                 </div>
               </div>
+
+              {splitMode === 'fixed-plus-equal' && (
+                <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                  <h4 className="font-semibold text-gray-800">Fixed Amount Setup</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Person</label>
+                      <select
+                        value={fixedPerson}
+                        onChange={(e) => setFixedPerson(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select person</option>
+                        {splitWith.map(person => (
+                          <option key={person} value={person}>{person}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fixed Amount ($)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={fixedAmount}
+                        onChange={(e) => setFixedAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  {fixedPerson && fixedAmount && amount && (
+                    <div className="text-sm text-gray-700 mt-2">
+                      <p><strong>{fixedPerson}</strong> pays: ${parseFloat(fixedAmount).toFixed(2)}</p>
+                      <p>Remaining ${getRemainingAmount()} split between {getOtherPeopleCount()} {getOtherPeopleCount() === 1 ? 'person' : 'people'}</p>
+                      {getOtherPeopleCount() > 0 && (
+                        <p>Each pays: ${(parseFloat(getRemainingAmount()) / getOtherPeopleCount()).toFixed(2)}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <div className="flex justify-between items-center mb-2">
@@ -542,7 +642,7 @@ function App() {
                           className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                         />
                         <span className="text-gray-700 flex-1">{person}</span>
-                        {splitType === 'custom' && splitWith.includes(person) && (
+                        {splitMode === 'custom' && splitWith.includes(person) && (
                           <input
                             type="number"
                             step="0.01"
@@ -557,12 +657,12 @@ function App() {
                     </div>
                   ))}
                 </div>
-                {splitWith.length > 0 && splitType === 'equal' && amount && (
+                {splitWith.length > 0 && splitMode === 'equal' && amount && (
                   <p className="text-sm text-gray-600 mt-2">
                     Each person pays: ${perPersonAmount}
                   </p>
                 )}
-                {splitWith.length > 0 && splitType === 'custom' && (
+                {splitWith.length > 0 && splitMode === 'custom' && (
                   <p className="text-sm text-gray-600 mt-2">
                     Total assigned: ${totalAssigned} / ${amount || '0.00'}
                   </p>
@@ -608,7 +708,7 @@ function App() {
                         <div className="flex-1">
                           <span className="font-medium text-gray-800">{person}</span>
                           <span className={`ml-3 font-semibold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                            {balance < 0 ? `Owes $${Math.abs(balance).toFixed(2)}` : balance > 0 ? `Overpaid $${balance.toFixed(2)}` : 'Settled'}
+                            {balance < 0 ? `Owes ${Math.abs(balance).toFixed(2)}` : balance > 0 ? `Overpaid ${balance.toFixed(2)}` : 'Settled'}
                           </span>
                         </div>
                         {balance < -0.01 && (
