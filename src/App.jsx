@@ -9,6 +9,7 @@ function App() {
   const [newPersonName, setNewPersonName] = useState('');
   const [showReminder, setShowReminder] = useState(false);
   const [reminderPerson, setReminderPerson] = useState('');
+  
   const defaultCategories = ['Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities', 'Other'];
   const [categories, setCategories] = useState(defaultCategories);
   const [selectedCategory, setSelectedCategory] = useState('Other');
@@ -18,12 +19,10 @@ function App() {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [splitWith, setSplitWith] = useState([]);
-  const [splitType, setSplitType] = useState('equal');
+  const [splitMode, setSplitMode] = useState('equal');
   const [customAmounts, setCustomAmounts] = useState({});
   const [notes, setNotes] = useState('');
-  const [splitMode, setSplitMode] = useState('equal');
-  const [fixedPerson, setFixedPerson] = useState('');
-  const [fixedAmount, setFixedAmount] = useState('');
+  const [multiFixedAmounts, setMultiFixedAmounts] = useState({});
 
   const addPerson = () => {
     if (newPersonName.trim() && !people.includes(newPersonName.trim())) {
@@ -66,21 +65,36 @@ function App() {
       }
       splitAmounts = { ...customAmounts };
     } else if (splitMode === 'fixed-plus-equal') {
-      if (!fixedPerson || !fixedAmount) {
-        alert('Please select a person and enter their fixed amount');
-        return;
-      }
-      const fixed = parseFloat(fixedAmount);
-      if (fixed >= totalAmount) {
-        alert('Fixed amount must be less than total amount');
+      const totalFixed = Object.values(multiFixedAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+      
+      if (totalFixed >= totalAmount) {
+        alert('Total fixed amounts must be less than total amount');
         return;
       }
       
-      const remaining = totalAmount - fixed;
-      const otherPeople = splitWith.filter(p => p !== fixedPerson);
+      const fixedPeople = Object.keys(multiFixedAmounts).filter(person => 
+        multiFixedAmounts[person] && parseFloat(multiFixedAmounts[person]) > 0
+      );
+      
+      if (fixedPeople.length === 0) {
+        alert('Please assign fixed amounts to at least one person');
+        return;
+      }
+      
+      const remaining = totalAmount - totalFixed;
+      const otherPeople = splitWith.filter(p => !fixedPeople.includes(p));
+      
+      if (otherPeople.length === 0) {
+        alert('At least one person must split the remaining amount equally');
+        return;
+      }
+      
       const perPersonAmount = remaining / otherPeople.length;
       
-      splitAmounts[fixedPerson] = fixed;
+      fixedPeople.forEach(person => {
+        splitAmounts[person] = parseFloat(multiFixedAmounts[person]);
+      });
+      
       otherPeople.forEach(person => {
         splitAmounts[person] = perPersonAmount;
       });
@@ -107,8 +121,7 @@ function App() {
     setCustomAmounts({});
     setSelectedCategory('Other');
     setNotes('');
-    setFixedPerson('');
-    setFixedAmount('');
+    setMultiFixedAmounts({});
     setCurrentPage('home');
   };
 
@@ -145,10 +158,9 @@ function App() {
       const newCustomAmounts = { ...customAmounts };
       delete newCustomAmounts[person];
       setCustomAmounts(newCustomAmounts);
-      if (fixedPerson === person) {
-        setFixedPerson('');
-        setFixedAmount('');
-      }
+      const newMultiFixed = { ...multiFixedAmounts };
+      delete newMultiFixed[person];
+      setMultiFixedAmounts(newMultiFixed);
     } else {
       setSplitWith([...splitWith, person]);
     }
@@ -169,13 +181,19 @@ function App() {
   const deselectAllPeople = () => {
     setSplitWith([]);
     setCustomAmounts({});
-    setFixedPerson('');
-    setFixedAmount('');
+    setMultiFixedAmounts({});
   };
 
   const updateCustomAmount = (person, value) => {
     setCustomAmounts({
       ...customAmounts,
+      [person]: value
+    });
+  };
+
+  const updateMultiFixedAmount = (person, value) => {
+    setMultiFixedAmounts({
+      ...multiFixedAmounts,
       [person]: value
     });
   };
@@ -277,26 +295,6 @@ function App() {
     return settlements;
   };
 
-  const perPersonAmount = splitWith.length > 0 && amount && splitMode === 'equal' 
-    ? (parseFloat(amount) / splitWith.length).toFixed(2) 
-    : '0.00';
-  
-  const totalAssigned = splitWith.length > 0 && splitMode === 'custom'
-    ? splitWith.reduce((sum, person) => sum + (parseFloat(customAmounts[person]) || 0), 0).toFixed(2)
-    : '0.00';
-
-  const getRemainingAmount = () => {
-    if (splitMode === 'fixed-plus-equal' && fixedAmount && amount) {
-      const remaining = parseFloat(amount) - parseFloat(fixedAmount);
-      return remaining > 0 ? remaining.toFixed(2) : '0.00';
-    }
-    return '0.00';
-  };
-
-  const getOtherPeopleCount = () => {
-    return splitWith.filter(p => p !== fixedPerson).length;
-  };
-
   const addCategory = () => {
     if (newCategory.trim() && !categories.includes(newCategory.trim())) {
       setCategories([...categories, newCategory.trim()]);
@@ -320,6 +318,34 @@ function App() {
       }
     }
   };
+
+  const getRemainingAmount = () => {
+    if (splitMode === 'fixed-plus-equal' && amount) {
+      const totalFixed = Object.values(multiFixedAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0);
+      const remaining = parseFloat(amount) - totalFixed;
+      return remaining > 0 ? remaining.toFixed(2) : '0.00';
+    }
+    return '0.00';
+  };
+
+  const getOtherPeopleCount = () => {
+    const fixedPeople = Object.keys(multiFixedAmounts).filter(person => 
+      multiFixedAmounts[person] && parseFloat(multiFixedAmounts[person]) > 0
+    );
+    return splitWith.filter(p => !fixedPeople.includes(p)).length;
+  };
+
+  const getTotalFixedAmount = () => {
+    return Object.values(multiFixedAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0).toFixed(2);
+  };
+
+  const perPersonAmount = splitWith.length > 0 && amount && splitMode === 'equal' 
+    ? (parseFloat(amount) / splitWith.length).toFixed(2) 
+    : '0.00';
+  
+  const totalAssigned = splitWith.length > 0 && splitMode === 'custom'
+    ? splitWith.reduce((sum, person) => sum + (parseFloat(customAmounts[person]) || 0), 0).toFixed(2)
+    : '0.00';
 
   if (!setupComplete) {
     return (
@@ -610,7 +636,7 @@ function App() {
                       onChange={(e) => setSplitMode(e.target.value)}
                       className="w-4 h-4 text-blue-600"
                     />
-                    <span className="text-gray-700">Fixed + Equal - One person pays fixed, others split remaining</span>
+                    <span className="text-gray-700">Fixed + Equal - Some pay fixed, others split remaining</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -625,42 +651,58 @@ function App() {
                 </div>
               </div>
 
-              {splitMode === 'fixed-plus-equal' && (
+              {splitMode === 'fixed-plus-equal' && splitWith.length > 0 && (
                 <div className="bg-blue-50 p-4 rounded-lg space-y-3">
-                  <h4 className="font-semibold text-gray-800">Fixed Amount Setup</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Person</label>
-                      <select
-                        value={fixedPerson}
-                        onChange={(e) => setFixedPerson(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select person</option>
-                        {splitWith.map(person => (
-                          <option key={person} value={person}>{person}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Fixed Amount ($)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={fixedAmount}
-                        onChange={(e) => setFixedAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                  <h4 className="font-semibold text-gray-800">Fixed Amounts Setup</h4>
+                  <p className="text-sm text-gray-600">Check people who pay fixed amounts. Others will split the remaining equally.</p>
+                  
+                  <div className="space-y-2">
+                    {splitWith.map(person => (
+                      <div key={person} className="flex items-center gap-2">
+                        <label className="flex-1 flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={multiFixedAmounts.hasOwnProperty(person)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                updateMultiFixedAmount(person, '');
+                              } else {
+                                const newMultiFixed = { ...multiFixedAmounts };
+                                delete newMultiFixed[person];
+                                setMultiFixedAmounts(newMultiFixed);
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600"
+                          />
+                          <span className="font-medium text-gray-700">{person}</span>
+                        </label>
+                        {multiFixedAmounts.hasOwnProperty(person) && (
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={multiFixedAmounts[person] || ''}
+                            onChange={(e) => updateMultiFixedAmount(person, e.target.value)}
+                            placeholder="Fixed amount"
+                            className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  {fixedPerson && fixedAmount && amount && (
-                    <div className="text-sm text-gray-700 mt-2">
-                      <p><strong>{fixedPerson}</strong> pays: ${parseFloat(fixedAmount).toFixed(2)}</p>
-                      <p>Remaining ${getRemainingAmount()} split between {getOtherPeopleCount()} {getOtherPeopleCount() === 1 ? 'person' : 'people'}</p>
-                      {getOtherPeopleCount() > 0 && (
-                        <p>Each pays: ${(parseFloat(getRemainingAmount()) / getOtherPeopleCount()).toFixed(2)}</p>
-                      )}
+
+                  {amount && splitWith.length > 0 && (
+                    <div className="text-sm text-gray-700 mt-3 p-3 bg-white rounded border border-blue-200">
+                      <div className="space-y-1">
+                        <p><strong>Total Amount:</strong> ${parseFloat(amount).toFixed(2)}</p>
+                        <p><strong>Total Fixed Amounts:</strong> ${getTotalFixedAmount()}</p>
+                        <p><strong>Remaining to Split:</strong> ${getRemainingAmount()}</p>
+                        <p><strong>People Splitting Equally:</strong> {getOtherPeopleCount()}</p>
+                        {getOtherPeopleCount() > 0 && parseFloat(getRemainingAmount()) > 0 && (
+                          <p className="font-semibold text-blue-700 mt-2">
+                            Each pays: ${(parseFloat(getRemainingAmount()) / getOtherPeopleCount()).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
