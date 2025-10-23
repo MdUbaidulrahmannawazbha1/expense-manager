@@ -822,23 +822,35 @@ function App() {
                 <div className="space-y-2">
                   {Object.entries(calculateBalances()).map(([person, balance]) => (
                     person !== 'Me' && (
-                      <div key={person} className="bg-white p-4 rounded-lg shadow border border-gray-200 flex justify-between items-center">
-                        <div className="flex-1">
-                          <span className="font-medium text-gray-800">{person}</span>
-                          <span className={`ml-3 font-semibold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                            {balance < 0 ? `Owes ${Math.abs(balance).toFixed(2)}` : balance > 0 ? `Overpaid ${balance.toFixed(2)}` : 'Settled'}
-                          </span>
+                      <div key={person} className="bg-white p-4 rounded-lg shadow border border-gray-200">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-800">{person}</span>
+                            <span className={`ml-3 font-semibold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                              {balance < 0 ? `Owes ${Math.abs(balance).toFixed(2)}` : balance > 0 ? `Overpaid ${balance.toFixed(2)}` : 'Settled'}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => viewPersonDetails(person)}
+                              className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 flex items-center gap-1"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Details
+                            </button>
+                            {balance < -0.01 && (
+                              <button
+                                type="button"
+                                onClick={() => sendReminder(person)}
+                                className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1"
+                              >
+                                <Bell className="w-4 h-4" />
+                                Remind
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        {balance < -0.01 && (
-                          <button
-                            type="button"
-                            onClick={() => sendReminder(person)}
-                            className="ml-2 px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1"
-                          >
-                            <Bell className="w-4 h-4" />
-                            Remind
-                          </button>
-                        )}
                       </div>
                     )
                   ))}
