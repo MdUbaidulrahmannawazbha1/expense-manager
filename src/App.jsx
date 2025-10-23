@@ -9,8 +9,11 @@ function App() {
   const [newPersonName, setNewPersonName] = useState('');
   const [showReminder, setShowReminder] = useState(false);
   const [reminderPerson, setReminderPerson] = useState('');
-  const categories = ['Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities', 'Other'];
+  const defaultCategories = ['Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities', 'Other'];
+  const [categories, setCategories] = useState(defaultCategories);
   const [selectedCategory, setSelectedCategory] = useState('Other');
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
   
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -294,6 +297,30 @@ function App() {
     return splitWith.filter(p => p !== fixedPerson).length;
   };
 
+  const addCategory = () => {
+    if (newCategory.trim() && !categories.includes(newCategory.trim())) {
+      setCategories([...categories, newCategory.trim()]);
+      setSelectedCategory(newCategory.trim());
+      setNewCategory('');
+      setShowAddCategory(false);
+    } else if (categories.includes(newCategory.trim())) {
+      alert('Category already exists!');
+    }
+  };
+
+  const deleteCategory = (categoryToDelete) => {
+    if (defaultCategories.includes(categoryToDelete)) {
+      alert('Cannot delete default categories!');
+      return;
+    }
+    if (window.confirm(`Delete category "${categoryToDelete}"?`)) {
+      setCategories(categories.filter(c => c !== categoryToDelete));
+      if (selectedCategory === categoryToDelete) {
+        setSelectedCategory('Other');
+      }
+    }
+  };
+
   if (!setupComplete) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -499,15 +526,44 @@ function App() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCategory(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                    title="Add custom category"
+                  >
+                    +
+                  </button>
+                </div>
+                {categories.length > defaultCategories.length && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {categories.filter(cat => !defaultCategories.includes(cat)).map(cat => (
+                      <span
+                        key={cat}
+                        className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs"
+                      >
+                        {cat}
+                        <button
+                          type="button"
+                          onClick={() => deleteCategory(cat)}
+                          className="hover:text-purple-900"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -819,6 +875,47 @@ function App() {
               <button
                 type="button"
                 onClick={() => setShowReminder(false)}
+                className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddCategory && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Add Custom Category</h3>
+            <input
+              type="text"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addCategory();
+                }
+              }}
+              placeholder="Enter category name"
+              autoFocus
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={addCategory}
+                className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700"
+              >
+                Add Category
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddCategory(false);
+                  setNewCategory('');
+                }}
                 className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-400"
               >
                 Cancel
