@@ -3,17 +3,46 @@ import { PlusCircle, Home, FileText, Users, Trash2, DollarSign, Bell, X } from '
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
-  const [expenses, setExpenses] = useState([]);
-  const [people, setPeople] = useState([]);
-  const [setupComplete, setSetupComplete] = useState(false);
+  const [expenses, setExpenses] = useState(() => {
+    const saved = localStorage.getItem('expenses');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [people, setPeople] = useState(() => {
+    const saved = localStorage.getItem('people');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [setupComplete, setSetupComplete] = useState(() => {
+    const saved = localStorage.getItem('setupComplete');
+    return saved ? JSON.parse(saved) : false;
+  });
   const [newPersonName, setNewPersonName] = useState('');
   const [showReminder, setShowReminder] = useState(false);
   const [reminderPerson, setReminderPerson] = useState('');
   const [showPersonDetails, setShowPersonDetails] = useState(false);
   const [selectedPersonForDetails, setSelectedPersonForDetails] = useState('');
   
+  // Save to localStorage whenever data changes
+  React.useEffect(() => {
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+  }, [expenses]);
+
+  React.useEffect(() => {
+    localStorage.setItem('people', JSON.stringify(people));
+  }, [people]);
+
+  React.useEffect(() => {
+    localStorage.setItem('setupComplete', JSON.stringify(setupComplete));
+  }, [setupComplete]);
+
+  React.useEffect(() => {
+    localStorage.setItem('categories', JSON.stringify(categories));
+  }, [categories]);
+  
   const defaultCategories = ['Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities', 'Other'];
-  const [categories, setCategories] = useState(defaultCategories);
+  const [categories, setCategories] = useState(() => {
+    const saved = localStorage.getItem('categories');
+    return saved ? JSON.parse(saved) : defaultCategories;
+  });
   const [selectedCategory, setSelectedCategory] = useState('Other');
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategory, setNewCategory] = useState('');
@@ -43,6 +72,18 @@ function App() {
       return;
     }
     setSetupComplete(true);
+  };
+
+  const clearAllData = () => {
+    if (window.confirm('⚠️ This will delete ALL data including expenses, people, and categories. Are you sure?')) {
+      localStorage.clear();
+      setExpenses([]);
+      setPeople([]);
+      setCategories(defaultCategories);
+      setSetupComplete(false);
+      setCurrentPage('home');
+      alert('All data cleared successfully!');
+    }
   };
 
   const addExpense = () => {
@@ -799,7 +840,18 @@ function App() {
 
           {currentPage === 'summary' && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Summary</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Summary</h2>
+                <button
+                  type="button"
+                  onClick={clearAllData}
+                  className="px-3 py-1 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 flex items-center gap-1"
+                  title="Clear all data"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear All
+                </button>
+              </div>
 
               {expenses.length > 0 && (
                 <div>
