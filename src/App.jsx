@@ -9,6 +9,8 @@ function App() {
   const [newPersonName, setNewPersonName] = useState('');
   const [showReminder, setShowReminder] = useState(false);
   const [reminderPerson, setReminderPerson] = useState('');
+  const [showPersonDetails, setShowPersonDetails] = useState(false);
+  const [selectedPersonForDetails, setSelectedPersonForDetails] = useState('');
   
   const defaultCategories = ['Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities', 'Other'];
   const [categories, setCategories] = useState(defaultCategories);
@@ -337,6 +339,24 @@ function App() {
 
   const getTotalFixedAmount = () => {
     return Object.values(multiFixedAmounts).reduce((sum, amt) => sum + (parseFloat(amt) || 0), 0).toFixed(2);
+  };
+
+  const getPersonExpenseDetails = (person) => {
+    const personExpenses = expenses.filter(exp => exp.splitWith.includes(person));
+    return personExpenses.map(exp => ({
+      id: exp.id,
+      description: exp.description,
+      category: exp.category,
+      totalAmount: exp.amount,
+      personOwes: exp.splitAmounts[person],
+      date: exp.date,
+      notes: exp.notes
+    }));
+  };
+
+  const viewPersonDetails = (person) => {
+    setSelectedPersonForDetails(person);
+    setShowPersonDetails(true);
   };
 
   const perPersonAmount = splitWith.length > 0 && amount && splitMode === 'equal' 
@@ -961,6 +981,92 @@ function App() {
                 className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-400"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPersonDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full my-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-2xl font-bold text-gray-800">Expense Details: {selectedPersonForDetails}</h3>
+              <button
+                type="button"
+                onClick={() => setShowPersonDetails(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg">
+              <div className="text-sm opacity-90 mb-1">Total Amount Owed</div>
+              <div className="text-3xl font-bold">
+                ${Math.abs(calculateBalances()[selectedPersonForDetails] || 0).toFixed(2)}
+              </div>
+            </div>
+
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {getPersonExpenseDetails(selectedPersonForDetails).length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No expenses found for this person</p>
+              ) : (
+                getPersonExpenseDetails(selectedPersonForDetails).map(detail => (
+                  <div key={detail.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-gray-800">{detail.description}</h4>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                            {detail.category}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <p>
+                            <span className="font-medium">Date:</span>{' '}
+                            {new Date(detail.date).toLocaleDateString()} at{' '}
+                            {new Date(detail.date).toLocaleTimeString()}
+                          </p>
+                          <p>
+                            <span className="font-medium">Total Expense:</span>{' '}
+                            <span className="text-gray-700">${detail.totalAmount.toFixed(2)}</span>
+                          </p>
+                          <p>
+                            <span className="font-medium">{selectedPersonForDetails}'s Share:</span>{' '}
+                            <span className="font-bold text-red-600">${detail.personOwes.toFixed(2)}</span>
+                          </p>
+                          {detail.notes && (
+                            <p className="italic text-gray-500">Note: {detail.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              {calculateBalances()[selectedPersonForDetails] < -0.01 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPersonDetails(false);
+                    sendReminder(selectedPersonForDetails);
+                  }}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2"
+                >
+                  <Bell className="w-5 h-5" />
+                  Send Payment Reminder
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowPersonDetails(false)}
+                className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-400"
+              >
+                Close
               </button>
             </div>
           </div>
