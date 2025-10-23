@@ -4,20 +4,40 @@ import { PlusCircle, Home, FileText, Users, Trash2, DollarSign, Bell, X, Downloa
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    return saved ? JSON.parse(saved) : false;
+    try {
+      const saved = localStorage.getItem('darkMode');
+      return saved ? JSON.parse(saved) : false;
+    } catch (error) {
+      console.error('Error loading darkMode:', error);
+      return false;
+    }
   });
   const [expenses, setExpenses] = useState(() => {
-    const saved = localStorage.getItem('expenses');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('expenses');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Error loading expenses:', error);
+      return [];
+    }
   });
   const [people, setPeople] = useState(() => {
-    const saved = localStorage.getItem('people');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('people');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Error loading people:', error);
+      return [];
+    }
   });
   const [setupComplete, setSetupComplete] = useState(() => {
-    const saved = localStorage.getItem('setupComplete');
-    return saved ? JSON.parse(saved) : false;
+    try {
+      const saved = localStorage.getItem('setupComplete');
+      return saved ? JSON.parse(saved) : false;
+    } catch (error) {
+      console.error('Error loading setupComplete:', error);
+      return false;
+    }
   });
   const [newPersonName, setNewPersonName] = useState('');
   const [showReminder, setShowReminder] = useState(false);
@@ -28,8 +48,13 @@ function App() {
   
   const defaultCategories = ['Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities', 'Other'];
   const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('categories');
-    return saved ? JSON.parse(saved) : defaultCategories;
+    try {
+      const saved = localStorage.getItem('categories');
+      return saved ? JSON.parse(saved) : defaultCategories;
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      return defaultCategories;
+    }
   });
   const [selectedCategory, setSelectedCategory] = useState('Other');
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -43,25 +68,51 @@ function App() {
   const [notes, setNotes] = useState('');
   const [multiFixedAmounts, setMultiFixedAmounts] = useState({});
 
-  // Save to localStorage
+  // Save to localStorage with error handling
   useEffect(() => {
-    localStorage.setItem('expenses', JSON.stringify(expenses));
+    try {
+      localStorage.setItem('expenses', JSON.stringify(expenses));
+      console.log('✅ Saved expenses:', expenses.length, 'items');
+    } catch (error) {
+      console.error('❌ Error saving expenses:', error);
+      alert('Failed to save expenses! Storage may be full or disabled.');
+    }
   }, [expenses]);
 
   useEffect(() => {
-    localStorage.setItem('people', JSON.stringify(people));
+    try {
+      localStorage.setItem('people', JSON.stringify(people));
+      console.log('✅ Saved people:', people.length, 'items');
+    } catch (error) {
+      console.error('❌ Error saving people:', error);
+    }
   }, [people]);
 
   useEffect(() => {
-    localStorage.setItem('setupComplete', JSON.stringify(setupComplete));
+    try {
+      localStorage.setItem('setupComplete', JSON.stringify(setupComplete));
+      console.log('✅ Saved setupComplete:', setupComplete);
+    } catch (error) {
+      console.error('❌ Error saving setupComplete:', error);
+    }
   }, [setupComplete]);
 
   useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories));
+    try {
+      localStorage.setItem('categories', JSON.stringify(categories));
+      console.log('✅ Saved categories:', categories.length, 'items');
+    } catch (error) {
+      console.error('❌ Error saving categories:', error);
+    }
   }, [categories]);
 
   useEffect(() => {
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    try {
+      localStorage.setItem('darkMode', JSON.stringify(darkMode));
+      console.log('✅ Saved darkMode:', darkMode);
+    } catch (error) {
+      console.error('❌ Error saving darkMode:', error);
+    }
   }, [darkMode]);
 
   const addPerson = () => {
@@ -452,8 +503,21 @@ function App() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-6">
                 <h2 className={`text-2xl font-bold ${textPrimary}`}>Expense Logs</h2>
-                <div className={`text-sm ${textSecondary}`}>
-                  Total: ${expenses.reduce((sum, exp) => sum + exp.amount, 0).toFixed(2)}
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={() => {
+                      console.log('Testing localStorage...');
+                      console.log('Expenses:', localStorage.getItem('expenses'));
+                      console.log('People:', localStorage.getItem('people'));
+                      alert('Check browser console (F12) for localStorage data');
+                    }}
+                    className="text-xs bg-gray-500 text-white px-2 py-1 rounded"
+                  >
+                    Test Storage
+                  </button>
+                  <div className={`text-sm ${textSecondary}`}>
+                    Total: ${expenses.reduce((sum, exp) => sum + exp.amount, 0).toFixed(2)}
+                  </div>
                 </div>
               </div>
 
